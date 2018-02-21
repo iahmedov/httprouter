@@ -26,6 +26,8 @@ The router is optimized for high performance and a small memory footprint. It sc
 
 Of course you can also set **custom [`NotFound`](https://godoc.org/github.com/julienschmidt/httprouter#Router.NotFound) and  [`MethodNotAllowed`](https://godoc.org/github.com/julienschmidt/httprouter#Router.MethodNotAllowed) handlers** and [**serve static files**](https://godoc.org/github.com/julienschmidt/httprouter#Router.ServeFiles).
 
+**Custom handler functions:** Support not only HTTP request/response cycle, but add your custom handlers by leveraging trie based data structure
+
 ## Usage
 
 This is just a quick introduction, view the [GoDoc](http://godoc.org/github.com/julienschmidt/httprouter) for details.
@@ -56,6 +58,44 @@ func main() {
     router.GET("/hello/:name", Hello)
 
     log.Fatal(http.ListenAndServe(":8080", router))
+}
+```
+
+Custom Handle type
+```go
+package main
+
+import (
+    "fmt"
+    "github.com/iahmedov/httprouter"
+)
+
+type ConsoleHandle = func(httprouter.Params)
+
+func ConsoleIndex(_ httprouter.Params) {
+    fmt.Printf("Welcome!\n")
+}
+
+func ConsoleHello(ps httprouter.Params) {
+    fmt.Printf("hello, %s!\n", ps.ByName("name"))
+}
+
+func main() {
+    tree := httprouter.NewTree()
+    tree.AddRoute("/", ConsoleIndex)
+    tree.AddRoute("/hello/:name", ConsoleHello)
+
+    route1 := "/"
+    handle1, params1, _ := tree.GetValue(route1)
+    if handle1 != nil {
+        handle1.(ConsoleHandle)(params1)
+    }
+
+    route2 := "/hello/router"
+    handle2, params2, _ := tree.GetValue(route2)
+    if handle2 != nil {
+        handle2.(ConsoleHandle)(params2)
+    }
 }
 ```
 

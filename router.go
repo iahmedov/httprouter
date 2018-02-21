@@ -110,7 +110,7 @@ func (ps Params) ByName(name string) string {
 // Router is a http.Handler which can be used to dispatch requests to different
 // handler functions via configurable routes
 type Router struct {
-	trees map[string]*node
+	trees map[string]*Node
 
 	// Enables automatic redirection if the current route can't be matched but a
 	// handler for the path with (without) the trailing slash exists.
@@ -224,16 +224,16 @@ func (r *Router) Handle(method, path string, handle Handle) {
 	}
 
 	if r.trees == nil {
-		r.trees = make(map[string]*node)
+		r.trees = make(map[string]*Node)
 	}
 
 	root := r.trees[method]
 	if root == nil {
-		root = new(node)
+		root = new(Node)
 		r.trees[method] = root
 	}
 
-	root.addRoute(path, handle)
+	root.AddRoute(path, handle)
 }
 
 // Handler is an adapter which allows the usage of an http.Handler as a
@@ -288,7 +288,12 @@ func (r *Router) recv(w http.ResponseWriter, req *http.Request) {
 // the same path with an extra / without the trailing slash should be performed.
 func (r *Router) Lookup(method, path string) (Handle, Params, bool) {
 	if root := r.trees[method]; root != nil {
-		return root.getValue(path)
+		h, p, b := root.GetValue(path)
+		if h != nil {
+			return h.(Handle), p, b
+		}
+
+		return nil, p, b
 	}
 	return nil, nil, false
 }
@@ -314,7 +319,7 @@ func (r *Router) allowed(path, reqMethod string) (allow string) {
 				continue
 			}
 
-			handle, _, _ := r.trees[method].getValue(path)
+			handle, _, _ := r.trees[method].GetValue(path)
 			if handle != nil {
 				// add request method to list of allowed methods
 				if len(allow) == 0 {
@@ -340,8 +345,8 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	path := req.URL.Path
 
 	if root := r.trees[req.Method]; root != nil {
-		if handle, ps, tsr := root.getValue(path); handle != nil {
-			handle(w, req, ps)
+		if handle, ps, tsr := root.GetValue(path); handle != nil {
+			handle.(Handle)(w, req, ps)
 			return
 		} else if req.Method != "CONNECT" && path != "/" {
 			code := 301 // Permanent redirect, request with GET method
